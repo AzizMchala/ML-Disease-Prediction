@@ -52,7 +52,9 @@ python download_data.py D1 D2 D3 D4                        # télécharge depuis
 python run_experiments.py --datasets D1 D2 D3 D4 --quick   # test rapide du pipeline
 python run_experiments.py --datasets D1 D2 D3 D4           # protocole complet
 python run_experiments.py --datasets D3 --dedup            # sans doublons
+python run_experiments.py --datasets D4 --drop time        # retirer une colonne
 python run_experiments.py --datasets D4 --seeds 0 1 42     # sensibilité au split
+python seed_analysis.py heart                              # moyenne ± écart-type sur les seeds
 python integrate.py                                        # tableaux finaux équipe
 ```
 

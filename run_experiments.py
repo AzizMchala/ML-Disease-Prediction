@@ -26,8 +26,9 @@ from src.preprocessing import prepare
 warnings.filterwarnings("ignore")
 
 
-def run(dataset_id, models, seed, test_size, dedup, quick):
+def run(dataset_id, models, seed, test_size, dedup, quick, drop=()):
     df, target = load(dataset_id)
+    df = df.drop(columns=[c for c in drop if c in df.columns])
     X_tr, X_te, y_tr, y_te = prepare(df, target, drop_duplicates=dedup,
                                      test_size=test_size, seed=seed)
     rows = []
@@ -41,7 +42,8 @@ def run(dataset_id, models, seed, test_size, dedup, quick):
         y_pred = best.predict(X_te)
         y_proba = best.predict_proba(X_te)
         m = compute_metrics(y_te, y_pred, y_proba)
-        tag = f"{dataset_id}_{name}" + ("_dedup" if dedup else "")
+        tag = f"{dataset_id}_{name}" + ("_dedup" if dedup else "") + \
+            "".join(f"_no-{c}" for c in drop)
         cm = save_confusion_matrix(y_te, y_pred, f"{dataset_id} - {name}",
                                    config.FIG_DIR / f"{tag}_cm.png")
         rows.append({
@@ -64,18 +66,20 @@ def main():
     p.add_argument("--test-size", type=float, default=config.TEST_SIZE)
     p.add_argument("--dedup", action="store_true", help="supprimer les doublons avant le split")
     p.add_argument("--quick", action="store_true", help="grilles réduites (test du pipeline)")
+    p.add_argument("--drop", nargs="+", default=[], help="colonnes à retirer (ex. time pour D4)")
     args = p.parse_args()
+    suffix = ("_dedup" if args.dedup else "") + "".join(f"_no-{c}" for c in args.drop)
 
     config.FIG_DIR.mkdir(parents=True, exist_ok=True)
     rows = []
     for ds in args.datasets:
         for seed in args.seeds:
             print(f"== {ds} | seed={seed} | test_size={args.test_size} | dedup={args.dedup}")
-            rows += run(ds, args.models, seed, args.test_size, args.dedup, args.quick)
+            rows += run(ds, args.models, seed, args.test_size, args.dedup, args.quick, args.drop)
 
     res = add_article_comparison(pd.DataFrame(rows))
     for disease, part in res.groupby("disease"):
-        out = config.RESULTS_DIR / f"{disease}_results{'_dedup' if args.dedup else ''}.csv"
+        out = config.RESULTS_DIR / f"{disease}_results{suffix}.csv"
         if out.exists():  # on remplace seulement les lignes recalculées
             old = pd.read_csv(out)
             key = ["dataset", "model", "seed", "test_size"]
