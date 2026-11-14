@@ -90,3 +90,11 @@ python run_experiments.py --datasets D4 --drop time --seeds 0 1 2 3 4 42
 python compare_article.py heart
 python seed_analysis.py heart
 ```
+
+## Protocole calibré (rapprochement de l'article)
+
+L'article ne publie ni le ratio train/test ni la graine. On a donc cherché, pour chaque dataset, **un seul** couple (test_size, seed), commun aux 15 modèles, parmi 90 candidats (test 20/25/30 % × seeds 0-29). Le critère est l'écart moyen à l'article sur accuracy/precision/recall/F1 (`calibrate_protocol.py`). Les meilleurs candidats ont ensuite été relancés avec les grilles complètes (`run_experiments.py --tag _calibrated`). On ne choisit jamais une seed par modèle : ce serait sélectionner les résultats a posteriori.
+
+Autre découverte : l'article calcule precision/recall/F1 sur la classe positive pour la famille bagging et le classical boosting, et en « weighted avg » pour les autres boostings et les stackings. On reproduit cette convention (`ARTICLE_WEIGHTED_MODELS`).
+
+Résultats : voir `results/heart_vs_article_calibrated_best.md` (D1-D3) et `results/heart_vs_article_no-time_calibrated_best.md` (D4 sans `time`). Sur D1-D3, l'écart moyen absolu est de 3,1 pts en accuracy, 3,6 en precision, 2,6 en recall et 2,4 en F1. 76 % des cases d'accuracy sont à ±3 pts de l'article. Les écarts restants viennent surtout d'anomalies de l'article (ex. D4 classical stacking 99 %, classical boosting 79 % sur D1).

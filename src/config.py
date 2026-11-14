@@ -30,3 +30,12 @@ MODELS = [
     "multi_level_stacking",
 ]
 METRICS = ["accuracy", "precision", "recall", "f1", "auc", "auprc"]
+
+# Moyenne utilisée par l'article pour precision / recall / F1, déduite de ses tableaux :
+# - famille bagging + classical boosting : classe positive seule (recall souvent ≠ accuracy)
+# - autres boostings + stackings : "weighted avg" du classification_report (recall = accuracy)
+# Les deux versions sont calculées ; *_w = moyenne pondérée.
+ARTICLE_WEIGHTED_MODELS = {
+    "adaboost", "catboost", "xgboost", "lightgbm", "logitboost",
+    "classical_stacking", "two_level_stacking", "multi_level_stacking",
+}

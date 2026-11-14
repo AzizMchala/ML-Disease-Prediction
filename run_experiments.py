@@ -67,8 +67,9 @@ def main():
     p.add_argument("--dedup", action="store_true", help="supprimer les doublons avant le split")
     p.add_argument("--quick", action="store_true", help="grilles réduites (test du pipeline)")
     p.add_argument("--drop", nargs="+", default=[], help="colonnes à retirer (ex. time pour D4)")
+    p.add_argument("--tag", default="", help="suffixe du fichier de sortie (ex. _calibrated)")
     args = p.parse_args()
-    suffix = ("_dedup" if args.dedup else "") + "".join(f"_no-{c}" for c in args.drop)
+    suffix = ("_dedup" if args.dedup else "") + "".join(f"_no-{c}" for c in args.drop) + args.tag
 
     config.FIG_DIR.mkdir(parents=True, exist_ok=True)
     rows = []

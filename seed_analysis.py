@@ -10,6 +10,7 @@ import argparse
 import pandas as pd
 
 from src import config
+from src.evaluate import add_article_comparison
 from compare_article import SHORT
 
 
@@ -17,12 +18,13 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("disease")
     p.add_argument("--metric", default="accuracy")
+    p.add_argument("--suffix", default="", help="ex. _no-time, _dedup")
     a = p.parse_args()
-    res = pd.read_csv(config.RESULTS_DIR / f"{a.disease}_results.csv")
+    res = add_article_comparison(pd.read_csv(config.RESULTS_DIR / f"{a.disease}_results{a.suffix}.csv"))
     m = a.metric
     g = res.groupby(["dataset", "model"]).agg(
-        mean=(m, "mean"), std=(m, "std"), lo=(m, "min"), hi=(m, "max"),
-        n=(m, "size"), article=(f"article_{m}", "first")).reset_index()
+        mean=(f"{m}_a", "mean"), std=(f"{m}_a", "std"), lo=(f"{m}_a", "min"),
+        hi=(f"{m}_a", "max"), n=(f"{m}_a", "size"), article=(f"article_{m}", "first")).reset_index()
     g["in_range"] = (g["article"] >= g["lo"] - 0.005) & (g["article"] <= g["hi"] + 0.005)
     g["gap"] = g["mean"] - g["article"]
     seeds = sorted(res["seed"].unique())
@@ -49,7 +51,7 @@ def main():
     lines.append(f"\nTotal : article dans l'intervalle de nos seeds pour "
                  f"{g['in_range'].sum()}/{len(g)} couples (dataset, modèle).")
 
-    out = config.RESULTS_DIR / f"{a.disease}_seeds.md"
+    out = config.RESULTS_DIR / f"{a.disease}_seeds{a.suffix}_{m}.md"
     out.write_text("\n".join(lines), encoding="utf-8")
     print("\n".join(lines))
     print(f"\n-> {out}")
