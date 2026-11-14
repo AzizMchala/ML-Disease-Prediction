@@ -25,6 +25,8 @@ def compute_metrics(y_true, y_pred, y_proba) -> dict:
         "recall": recall_score(y_true, y_pred, average=avg, zero_division=0),
         "f1": f1_score(y_true, y_pred, average=avg, zero_division=0),
     }
+    for k, fn in [("precision", precision_score), ("recall", recall_score), ("f1", f1_score)]:
+        out[f"{k}_w"] = fn(y_true, y_pred, average="weighted", zero_division=0)
     if binary:
         out["auc"] = roc_auc_score(y_true, y_proba[:, 1])
         out["auprc"] = average_precision_score(y_true, y_proba[:, 1])
@@ -52,15 +54,53 @@ def load_article_reference() -> pd.DataFrame:
     return pd.read_csv(config.ARTICLE_REF)
 
 
+def weighted_from_confusion(cm) -> dict:
+    """precision / recall / F1 pondérés à partir d'une matrice de confusion (lignes = vrai)."""
+    cm = np.asarray(cm, dtype=float)
+    support = cm.sum(axis=1)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        prec = np.nan_to_num(np.diag(cm) / cm.sum(axis=0))
+        rec = np.nan_to_num(np.diag(cm) / support)
+        f1 = np.nan_to_num(2 * prec * rec / (prec + rec))
+    w = support / support.sum()
+    return {"precision_w": (prec * w).sum(), "recall_w": (rec * w).sum(), "f1_w": (f1 * w).sum()}
+
+
+def ensure_weighted(results: pd.DataFrame) -> pd.DataFrame:
+    """Complète les colonnes *_w des anciens résultats grâce aux matrices de confusion."""
+    if "precision_w" in results and results["precision_w"].notna().all():
+        return results
+    import ast
+    filled = results["confusion_matrix"].map(
+        lambda s: weighted_from_confusion(ast.literal_eval(s) if isinstance(s, str) else s))
+    w = pd.DataFrame(list(filled), index=results.index)
+    for c in w:
+        results[c] = results[c].fillna(w[c]) if c in results else w[c]
+    return results
+
+
+def article_view(results: pd.DataFrame) -> pd.DataFrame:
+    """Colonnes *_a : la métrique calculée comme l'article (binaire ou pondérée selon le modèle)."""
+    results = ensure_weighted(results.copy())
+    weighted = results["model"].isin(config.ARTICLE_WEIGHTED_MODELS)
+    for m in ["precision", "recall", "f1"]:
+        results[f"{m}_a"] = np.where(weighted, results[f"{m}_w"], results[m])
+    for m in ["accuracy", "auc", "auprc"]:
+        results[f"{m}_a"] = results[m]
+    return results
+
+
 def add_article_comparison(results: pd.DataFrame) -> pd.DataFrame:
-    """Ajoute pour chaque métrique la valeur de l'article et l'écart (nous - article)."""
+    """Ajoute pour chaque métrique la valeur de l'article et l'écart (nous - article),
+    en utilisant la même moyenne que l'article (colonnes *_a)."""
     ref = load_article_reference().pivot_table(
         index=["dataset", "model"], columns="metric", values="value").reset_index()
     ref.columns = ["dataset", "model"] + [f"article_{m}" for m in ref.columns[2:]]
-    out = results.merge(ref, on=["dataset", "model"], how="left")
+    results = results.drop(columns=[c for c in results if c.startswith(("article_", "delta_"))])
+    out = article_view(results).merge(ref, on=["dataset", "model"], how="left")
     for m in config.METRICS:
         if f"article_{m}" in out:
-            out[f"delta_{m}"] = out[m] - out[f"article_{m}"]
+            out[f"delta_{m}"] = out[f"{m}_a"] - out[f"article_{m}"]
     return out
 
 
