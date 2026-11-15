@@ -26,7 +26,8 @@ def encode(df: pd.DataFrame, target: str):
     df = df.copy()
     encoders = {}
     for col in df.columns:
-        if df[col].dtype == object or str(df[col].dtype) == "category":
+        if (df[col].dtype == object or str(df[col].dtype) in ("category", "str", "string")
+                or pd.api.types.is_string_dtype(df[col])):
             le = LabelEncoder()
             df[col] = le.fit_transform(df[col].astype(str))
             encoders[col] = le

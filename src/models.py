@@ -105,6 +105,13 @@ class LogitBoostClassifier(ClassifierMixin, BaseEstimator):
 # --------------------------------------------------------------------------- #
 # Fabrique des 15 modèles                                                      #
 # --------------------------------------------------------------------------- #
+def _ada():
+    try:
+        return AdaBoostClassifier(algorithm="SAMME", random_state=SEED)
+    except TypeError:
+        return AdaBoostClassifier(random_state=SEED)
+
+
 def _dt():
     return DecisionTreeClassifier(random_state=SEED)
 
@@ -127,7 +134,7 @@ def _two_level_stacking():
         estimators=[("rf", RandomForestClassifier(random_state=SEED)),
                     ("et", ExtraTreesClassifier(random_state=SEED)),
                     ("xgb", XGBClassifier(random_state=SEED, verbosity=0)),
-                    ("ada", AdaBoostClassifier(algorithm="SAMME", random_state=SEED))],
+                    ("ada", _ada())],
         final_estimator=_lr(), stack_method="predict_proba", cv=5, n_jobs=1)
 
 
@@ -193,7 +200,7 @@ _REGISTRY = {
         {"n_estimators": [50, 100, 200], "learning_rate": [0.01, 0.1], "max_depth": [2, 3]},
         {"n_estimators": [100]}),
     "adaboost": (
-        lambda: AdaBoostClassifier(algorithm="SAMME", random_state=SEED),
+        _ada,
         {"n_estimators": [50, 100, 200], "learning_rate": [0.1, 0.5, 1.0]},
         {"n_estimators": [100]}),
     "catboost": (
